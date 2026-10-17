@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""vibe-init 脚手架：将治理骨架（AGENTS.md + docs/）创建到目标仓库。
+
+幂等：默认不覆盖已存在的文件（--force 显式覆盖）。
+运行后扫描骨架文件（含已存在的，格式示例文件除外）中的 `<...>` 占位符并按 文件:行 报告，
+作为回填进度参考；复跑可查看剩余待回填项。
+退出码：0=流程完成（含全部跳过）；2=skill assets 缺失或为空。
+"""
+import argparse
+import re
+import shutil
+import sys
+from pathlib import Path
+
+ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+
+# 这些文件本身是"格式的模板"（供未来复制使用），其占位符无需填写
+FORMAT_EXAMPLES = (
+    "docs/decisions/_template.md",
+    "docs/decisions/README.md",
+    "docs/design/README.md",
+    "docs/progress/README.md",
+)
+
+PLACEHOLDER_RE = re.compile(r"<([^<>\n]+)>")
+
+
+def collect_asset_files():
+    return sorted(p for p in ASSETS_DIR.rglob("*") if p.is_file())
+
+
+def copy_scaffold(target: Path, force: bool):
+    created, skipped = [], []
+    for src in collect_asset_files():
+        dst = target / src.relative_to(ASSETS_DIR)
+        if dst.exists() and not force:
+            skipped.append(dst)
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        created.append(dst)
+    return created, skipped
+
+
+def scan_placeholders(target: Path, created):
+    findings = []
+    for dst in created:
+        rel = dst.relative_to(target).as_posix()
+        if rel in FORMAT_EXAMPLES:
+            continue
+        for lineno, line in enumerate(dst.read_text(encoding="utf-8").splitlines(), 1):
+            for m in PLACEHOLDER_RE.finditer(line):
+                if m.group(1).strip() == "...":  # 模板中 `<...>` 为占位符的元说明
+                    continue
+                findings.append((rel, lineno, m.group(0)))
+                break  # 每行报一处即可
+    return findings
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="初始化 vibe coding 治理骨架（AGENTS.md + docs/）"
+    )
+    parser.add_argument("target", nargs="?", default=".",
+                        help="目标仓库根目录（默认当前目录）")
+    parser.add_argument("--force", action="store_true",
+                        help="覆盖已存在的目标文件（默认跳过）")
+    args = parser.parse_args()
+
+    if not ASSETS_DIR.is_dir() or not collect_asset_files():
+        print(f"错误：assets 缺失或为空（{ASSETS_DIR}），skill 结构不完整",
+              file=sys.stderr)
+        return 2
+
+    target = Path(args.target).resolve()
+    target.mkdir(parents=True, exist_ok=True)
+    created, skipped = copy_scaffold(target, args.force)
+
+    print(f"目标：{target}")
+    print(f"新建 {len(created)} 个文件：")
+    for p in created:
+        print(f"  + {p.relative_to(target).as_posix()}")
+    if skipped:
+        print(f"跳过 {len(skipped)} 个已存在文件（未改动；需覆盖用 --force）：")
+        for p in skipped:
+            print(f"  = {p.relative_to(target).as_posix()}")
+
+    findings = scan_placeholders(target, created + skipped)
+    if findings:
+        print("待填占位符（文件:行 -> 内容）：")
+        for rel, lineno, text in findings:
+            print(f"  {rel}:{lineno} -> {text}")
+    else:
+        print("无待填占位符。")
+
+    print("下一步：骨架生成完毕。占位符 <...> 无需当场追问，由 Agent 在后续开发中获知实际信息时主动回填；上述清单即回填进度参考。")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

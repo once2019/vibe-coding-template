@@ -1,10 +1,6 @@
 # vibe-template
 
-给 AI 编程 Agent 用的协作规范模板。复制 `AGENTS.md` 和 `docs/` 到你的仓库，替换占位符，项目就有了一套能跨会话延续的工作规则。
-
-它不规定技术栈，只管一件事：让 Agent 在新会话里知道上次发生了什么、为什么这么决定、什么不能做。
-
-规范基于开放标准 [agents.md](https://agents.md)，`AGENTS.md` 存放在仓库根目录，每次会话自动加载。
+vibe coding 治理模板的 **skill 正本仓库**。模板本体（`AGENTS.md` + `docs/`）存放于 `skills/vibe-init/assets/`，通过 `vibe-init` 技能安装到目标项目；本仓库不再维护第二份模板副本。
 
 ## 解决什么问题
 
@@ -56,35 +52,37 @@ Agent 十分钟写了五百行，看着挺像回事。没有人类评审，合�
 
 记忆按需分层加载：状态快照只记当前，完成项移交 `docs/progress/` 后即删，决策索引只留最近三条文件名，全文有行数与单行长度双上限。快照是状态，不是日志。
 
-## 快速开始
+## 安装技能
 
-接入新项目：
+把三个技能目录复制到 CodeBuddy 的用户技能目录：
 
-1. 复制 `AGENTS.md` 和 `docs/` 到目标仓库根目录
-2. 替换 `AGENTS.md` 里的 `<...>` 占位符：项目概述、构建/测试命令、代码风格红线
-3. 按需删掉用不到的目录，`memory/` 和 `decisions/` 必须保留
-4. 首次会话前填写 `docs/memory/context.md` 的当前状态
-5. 命令面大的项目（CLI/多入口脚本）建 `docs/design/cli-reference.md` 登记参数与设计动机，`AGENTS.md` §1 只留一句话定位
-
-日常协作时 Agent 会按这个顺序自动恢复状态：读 context.md 和 handoff.md → 查决策索引最近三条 → 动手 → 每完成一阶段更新 context.md → 会话收尾写 handoff.md。不用催，这些是规范里的强制行为；唯一要人记得的是创建决策记录时同步在 `docs/decisions/README.md` 追加一行索引。
-
-## 目录结构
-
-```text
-├── AGENTS.md          # 唯一事实来源：概述、命令、红线、工作流程
-└── docs/
-    ├── design/        # 架构设计、模块设计、接口设计
-    ├── decisions/     # 决策记录，含 _template.md 模板与 README.md 索引
-    ├── progress/      # 任务进度与验证记录
-    ├── memory/        # context.md 状态快照 + handoff.md 跨会话交接
-    └── specs/         # 需求规格与验收标准
+```bash
+mkdir -p ~/.codebuddy/skills && cp -r skills/vibe-init skills/vibe-memory skills/vibe-governance ~/.codebuddy/skills/
 ```
 
-每个目录的 README 写了该放什么、必须包含哪些字段，填写前先读一遍。
+安装后：对新项目说「初始化项目治理 / init AGENTS」触发 vibe-init（脚手架生成骨架，不追问占位符）；写记忆与决策时 vibe-memory 按细则介入；治理信号出现时 vibe-governance 接管规则维护与复盘。
+
+## 仓库结构
+
+```text
+├── AGENTS.md               # 本仓库自身的协作规范（非模板）
+├── README.md               # 本文件
+├── docs/decisions/         # 本仓库自身的决策记录
+└── skills/
+    ├── vibe-init/          # 治理骨架初始化：SKILL.md + assets 模板唯一正本 + scripts 脚手架
+    ├── vibe-memory/        # L2/L3 写作细则：context/handoff/决策记录怎么写才合格
+    └── vibe-governance/    # L1 维护与治理复盘：规则怎么改、复盘怎么跑
+```
+
+## 修改纪律
+
+- 改模板 = 改 `skills/vibe-init/assets/` 下的文件；模板规则变更须先在 `docs/decisions/` 登记决策记录。
+- 提交前验证：脚手架在临时目录两遍运行（新建 + 幂等）通过，且官方 `package_skill.py` 校验通过；展示命令输出。
+- 规范细节见本仓库 `AGENTS.md`。
 
 ## 这个模板长这样，是复盘出来的
 
-模板在真实项目实战一周（54 条决策）后做了一轮治理复盘：8 个反模式（入口膨胀、压行不压量、规则相抵、决策无索引、Ask-first 散落、易腐运行态、bootstrap 膨胀、不可测触发）各有实测证据与改法，已全部固化进模板本体。证据与自查清单见 `docs/design/governance-retrospective.md`。
+模板在真实项目实战一周（54 条决策）后做了一轮治理复盘：8 个反模式（入口膨胀、压行不压量、规则相抵、决策无索引、Ask-first 散落、易腐运行态、bootstrap 膨胀、不可测触发）各有实测证据与改法，已全部固化进模板本体。证据与自查清单见 `skills/vibe-init/assets/docs/design/governance-retrospective.md`。
 
 ## 这个模板不做什么
 
