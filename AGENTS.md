@@ -9,7 +9,7 @@
 
 - 定位：`<一句话说明项目是什么、解决什么问题，例：dsh-canvas-poc — 画布协作 POC>`
 - 技术栈：`<仅列 Agent 读 package.json / 依赖清单看不出意图的关键决策，例：状态管理用 X 而非常见 Y>`
-- 关键入口：`<主入口文件与启动方式；与 package.json scripts 能看出的内容不要写>`
+- 关键入口：`<主入口文件与启动方式；与 package.json scripts 能看出的内容不要写>`；命令面大的项目建 `docs/design/cli-reference.md` 作参数与设计动机的唯一权威（新增子命令须同步），本节只留一句话定位
 
 ## 2. 命令（仅收录 Agent 猜不到的）
 
@@ -29,7 +29,7 @@
 ## 4. 安全与交付红线
 
 - 禁止提交任何密钥、Token；环境变量集中在 `<.env.example 或 docs/ 指定位置>` 登记占位符，真实 `.env` 不入 Git。
-- 危险操作（删数据、force push、改 CI/部署配置、引入新的第三方依赖、安装系统级依赖）执行前必须经人类明确确认。
+- Ask-first 集中清单（执行前必须经人类明确确认；新增事项须登记于此，其他文档只作出处引用）：引入第三方依赖、安装系统级依赖、改 CI/部署配置、删数据、force push、`<项目特定危险事项>`。
 - 认证、密码哈希、输入校验、加密一律用成熟库，SQL 一律参数化，禁止自研安全原语。
 - AI 生成的代码未经人类评审不得合并或部署：测试全绿只证明"能跑"，不证明"对且安全"。
 
@@ -37,45 +37,47 @@
 
 用文件记忆对抗上下文丢失，按需分层加载，替代"把所有历史堆在会话里"：
 
-- **L1 长期记忆 = 本文件**：始终加载，≤100 行，只放目录与红线，详情一律链接到子文档。
-- **L2 决策记忆 = `docs/decisions/`**：每个影响项目方向的技术决策建一条 `YYYY-MM-DD-简短标题.md`，含决策内容、选择理由、被否决的替代方案、影响范围。模板见 `docs/decisions/_template.md`。
-- **L3 会话记忆 = `docs/memory/`**：`context.md` 为项目状态快照（本会话完成什么/进行中任务/下一步/阻塞）；`handoff.md` 为跨会话交接文档。
+- **L1 长期记忆 = 本文件**：始终加载，≤100 行且单行 ≤200 字符，只放目录与红线，详情一律链接到子文档。
+- **L2 决策记忆 = `docs/decisions/`**：每个影响项目方向的技术决策建一条 `YYYY-MM-DD-简短标题.md`，含决策内容、选择理由、被否决的替代方案、影响范围；创建后同步在 `docs/decisions/README.md` 追加一行索引。模板与修订双路径见 `docs/decisions/_template.md`。
+- **L3 会话记忆 = `docs/memory/`**：`context.md` 为项目状态快照（本会话完成什么/进行中任务/下一步/阻塞）；`handoff.md` 为跨会话交接文档，分「交接知识」与「运行态」两区，运行态条目（pid/时限纪律/后台任务）必须带失效条件。
 
 执行规则（Agent 强制行为）：
 
-- 会话开始：先读 `docs/memory/context.md`（`docs/memory/handoff.md` 存在时一并读，其"未完成工作清单"为本会话首批任务），再读最近 3 条 `docs/decisions/` 记录，然后动手。
-- 修改某模块前：先搜索 `docs/decisions/` 是否已有相关决策；已有决策不得盲目推翻，确需推翻须先建新决策记录说明理由。
-- 每完成一个阶段性任务或会话结束前：更新 `docs/memory/context.md`——更新即重写而非追加：完成项移交 `docs/progress/` 后即从快照删除，决策索引只留最近 3 条，全文 ≤50 行（快照是状态，不是日志）。
-- 每做出一个技术决策：立即创建对应决策记录。没有决策记录的架构、技术选型、核心接口修改，视为未完成。
-- 上下文使用超过 70% 或完成一个里程碑：撰写 `docs/memory/handoff.md`（已完成摘要、未完成清单、关键决策引用、新会话须遵守的约束）。
+- 会话开始：先读 `docs/memory/context.md`（`docs/memory/handoff.md` 存在时一并读，其"未完成工作清单"为本会话首批任务），再查 `docs/decisions/README.md` 索引最近 3 条（与任务相关或冲突才展开全文），然后动手。
+- 修改某模块前：先查 `docs/decisions/README.md` 索引（未命中再搜索 `docs/decisions/`）是否已有相关决策；已有决策不得盲目推翻，确需推翻须先建新决策记录说明理由。
+- 每完成一个阶段性任务或会话结束前：更新 `docs/memory/context.md`——完成项移交 `docs/progress/` 后即从快照删除，决策索引只留最近 3 条文件名（不写摘要）；快照是状态，不是日志。
+- 更新即重写而非追加；同仓并行会话时写法=先读最新、精确片段替换落地，禁止整文件覆盖式写入（终态仍是快照语义）。
+- 三层记忆双预算：AGENTS.md ≤100 行且单行 ≤200 字符｜context.md ≤40 行且单行 ≤150 字符｜handoff.md ≤60 行且单行 ≤150 字符；更新时超出先裁剪再写入。
+- 每做出一个技术决策：立即创建对应决策记录并在 `docs/decisions/README.md` 追加一行索引。没有决策记录的架构、技术选型、核心接口修改，视为未完成。
+- `docs/memory/handoff.md` 于会话收尾必写（已完成摘要、未完成清单、关键决策引用、新会话须遵守的约束）；更新时清除已失效的运行态条目。
 
 ## 6. 文档体系（每类信息各就各位）
 
 ```text
 docs/
 ├── design/      # 设计文档：架构设计、模块设计、接口设计
-├── decisions/   # 决策记录：每个技术决策的理由与替代方案
+├── decisions/   # 决策记录：每个技术决策的理由与替代方案（索引 README.md）
 ├── progress/    # 执行文档：任务进度、里程碑状态
 ├── memory/      # 记忆文件：context.md、handoff.md
 └── specs/       # 需求规格：功能描述、验收标准
 ```
 
-- 索引：状态快照 `docs/memory/context.md`｜交接 `docs/memory/handoff.md`｜决策模板 `docs/decisions/_template.md`｜design / progress / specs 各目录职责见其 README。
+- 索引：状态快照 `docs/memory/context.md`｜交接 `docs/memory/handoff.md`｜决策索引 `docs/decisions/README.md`｜决策模板 `docs/decisions/_template.md`｜design / progress / specs 各目录职责见其 README。
 
 同步规则：
 
 - 需求变更：先更新 `docs/specs/` 对应规格的描述与验收标准，再改代码；验收标准变化必须同步 `docs/design/`。
 - 设计文档：功能迭代或设计理念变化时，必须同步更新 `docs/design/` 对应文档，并标注变更日期与变更原因。
 - 执行文档：每完成一个任务，更新 `docs/progress/` 对应进度文件，含任务描述、完成状态、验证方式、遗留问题。
-- 决策可追溯：任何对架构、技术选型、核心接口的修改，必须有对应决策记录，否则任务不视为完成。
+- 决策可追溯：任何对架构、技术选型、核心接口的修改，必须有对应决策记录（创建时同步 `docs/decisions/README.md` 追加索引行），否则任务不视为完成。
 - 版本控制：`docs/` 全部纳入 Git，与代码同一次提交；提交信息遵循 Conventional Commits（`type(scope): 主题`，type 取 feat/fix/docs/test/chore 等），包版本遵循 SemVer；不允许"代码已改、文档没动"的提交进入主干。
 
 ## 7. 标准工作流程
 
-1. 启动阶段：读 `docs/memory/context.md` 与 `docs/memory/handoff.md`（如存在）恢复状态 → 读最近 3 条决策记录理解设计约束 → 涉及模块先查 `docs/decisions/`。
+1. 启动阶段：读 `docs/memory/context.md` 与 `docs/memory/handoff.md`（如存在）恢复状态 → 查 `docs/decisions/README.md` 索引最近 3 条（相关或冲突才展开全文）理解设计约束 → 涉及模块先查 `docs/decisions/`。
 2. 执行阶段：改代码前先说明实现计划、预期触及的文件、需确认的决策点 → 做出技术决策立即记录 → 有 `docs/specs/` 对应规格的功能块，完成后逐项 review 代码及落实情况，有偏差的统一处理完 → 更新 `context.md`。
 3. 修 bug 必须向前反思影响面：同一错误可能不止污染触发点——已落库的数据、依赖同一段逻辑的其他管线都在影响范围内，逐一修正或确认无涉，不允许只修代码不修影响。
-4. 收尾阶段：自问"哪里可能出错"（边界/错误处理/安全；测试通过 ≠ 符合意图）→ 更新 `docs/progress/` 对应执行文档 → 设计有变更则同步 `docs/design/` 并标注原因 → 上下文接近饱和或到达里程碑，写 `docs/memory/handoff.md`。
+4. 收尾阶段：自问"哪里可能出错"（边界/错误处理/安全；测试通过 ≠ 符合意图）→ 更新 `docs/progress/` 对应执行文档 → 设计有变更则同步 `docs/design/` 并标注原因 → 会话收尾写 `docs/memory/handoff.md`（运行态条目带失效条件）。
 
 ## 8. 规则冲突与自身维护
 
